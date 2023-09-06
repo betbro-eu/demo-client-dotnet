@@ -16,6 +16,9 @@ namespace Demo
 
         static async Task Main(string[] args)
         {
+            var directoryPath = Path.Combine(Directory.GetCurrentDirectory(), "messages");
+            Directory.CreateDirectory(directoryPath);
+
             var factory = new ConnectionFactory() { Uri = new Uri(CONNECTION_URI) };
             using var connection = factory.CreateConnection();
             using var channel = connection.CreateModel();
@@ -28,9 +31,19 @@ namespace Demo
             {
                 var body = ea.Body.ToArray();
                 var message = Encoding.UTF8.GetString(body);
-                // Console.WriteLine(message);
                 dynamic obj = JsonConvert.DeserializeObject(message);
-                Console.WriteLine(obj);
+
+                // Console.WriteLine(obj);
+                Console.Write(".");
+
+                // Record message to file
+                if (ea.BasicProperties.Headers.ContainsKey("fixture_id"))
+                {
+                    var fixtureId = ea.BasicProperties.Headers["fixture_id"].ToString();
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "messages", fixtureId);
+                    var messageContent = $"{DateTime.UtcNow.ToString("o")} | {message} | {ea.Exchange} | {ea.RoutingKey} | {JsonConvert.SerializeObject(ea.BasicProperties.Headers)}\n";
+                    await File.AppendAllTextAsync(filePath, messageContent);
+                }
 
                 await Task.Yield();
             };
